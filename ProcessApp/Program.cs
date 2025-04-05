@@ -1,71 +1,114 @@
-﻿namespace ProcessApp;
-
-using System;
+﻿using System;
 using System.Diagnostics;
-using System.Threading;
 using System.Linq;
 
 class ProcessMonitor
 {
     public void RunMonitor()
     {
-        Console.WriteLine("Process Monitor - Simple Version");
-        Console.WriteLine("--------------------------------");
+        Console.WriteLine("Process Monitor with Details");
+        Console.WriteLine("---------------------------");
 
-        int refreshInterval = GetRefreshInterval();
-        MonitorProcesses(refreshInterval);
+        while (true)
+        {
+            Console.Clear();
+            DisplayProcessList();
+            ShowMenu();
+
+            var choice = Console.ReadLine();
+            HandleUserChoice(choice);
+        }
     }
 
-    public int GetRefreshInterval()
+    private void ShowMenu()
     {
-        Console.Write("Enter refresh interval in seconds (default 7): ");
-        string input = Console.ReadLine();
-
-        if (!int.TryParse(input, out int interval) || interval <= 0)
-        {
-            Console.WriteLine("Using default value: 7 seconds");
-            return 7000;
-        }
-
-        return interval * 1000;
+        Console.WriteLine("\nOptions:");
+        Console.WriteLine("1. Enter process ID to view details");
+        Console.WriteLine("2. Exit");
+        Console.Write("Your choice: ");
     }
 
-    public void MonitorProcesses(int refreshInterval)
+    private void HandleUserChoice(string choice)
     {
-        try
+        switch (choice)
         {
-            while (true)
-            {
-                Console.Clear();
-                DisplayProcessList();
-                Console.WriteLine($"\nRefreshing in {refreshInterval / 1000} seconds");
-                Thread.Sleep(refreshInterval);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
+            case "1":
+                Console.Write("\nEnter Process ID: ");
+                if (int.TryParse(Console.ReadLine(), out int pid))
+                {
+                    var process = Process.GetProcesses().FirstOrDefault(p => p.Id == pid);
+                    ShowProcessDetails(process);
+                }
+                else
+                {
+                    Console.WriteLine("Invalid Process ID!");
+                    Console.ReadKey();
+                }
+
+                break;
+            case "2":
+                Environment.Exit(0);
+                break;
+            default:
+                Console.WriteLine("Invalid choice! Press any key to continue...");
+                Console.ReadKey();
+                break;
         }
     }
 
-    public void DisplayProcessList()
+    private void DisplayProcessList()
     {
         var processes = Process.GetProcesses()
-            .OrderBy(p => p.ProcessName);
+            .OrderBy(p => p.ProcessName)
+            .ToArray();
 
-        Console.WriteLine($"{"Process Name"} {"ID"} {"Memory (MB)"}");
-       // Console.WriteLine("-" * 20);
-        
-        Console.WriteLine("----------------------------------------");
+        Console.WriteLine($"Process Name || PID || Memory (MB) || Instances");
+        Console.WriteLine(new string('-', 60));
 
         foreach (var process in processes)
         {
-
+            int instanceCount = Process.GetProcessesByName(process.ProcessName).Length;
             Console.WriteLine(
-                $"{process.ProcessName} {process.Id} {process.WorkingSet64 / (1024 * 1024)}");
+                $"{process.ProcessName} {process.Id} {process.WorkingSet64 / (1024 * 1024)} {instanceCount}");
         }
 
-        Console.WriteLine($"\nTotal processes: {Process.GetProcesses().Length}");
+        Console.WriteLine($"\nTotal processes: {processes.Length}");
+    }
+
+    private void ShowProcessDetails(Process process)
+    {
+        if (process == null)
+        {
+            Console.WriteLine("Process not found!");
+            Console.ReadKey();
+            return;
+        }
+
+        try
+        {
+            Console.Clear();
+            Console.WriteLine($"Process Details - {process.ProcessName} (PID: {process.Id})");
+            Console.WriteLine("----------------------------------------");
+
+            Console.WriteLine($"Start Time:        {process.StartTime:yyyy-MM-dd HH:mm:ss}");
+            Console.WriteLine($"Total CPU Time:    {process.TotalProcessorTime}");
+            Console.WriteLine($"Thread Count:      {process.Threads.Count}");
+
+            var instances = Process.GetProcessesByName(process.ProcessName);
+            Console.WriteLine($"Instance Count:    {instances.Length}");
+
+            Console.WriteLine($"Memory Usage:      {process.WorkingSet64 / (1024 * 1024)} MB");
+            Console.WriteLine($"Priority:          {process.BasePriority}");
+            Console.WriteLine($"Responding:        {process.Responding}");
+
+            Console.WriteLine("\nPress any key to return to process list...");
+            Console.ReadKey();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Cannot show details: {ex.Message}");
+            Console.ReadKey();
+        }
     }
 }
 
